@@ -1,0 +1,6 @@
+{
+  "require": ["hardhat/register"],
+  "spec": ["spec/**/*.spec.ts"],
+  "node-option": ["no-experimental-strip-types"],
+  "timeout": 60000
+}
