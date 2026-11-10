@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png binary
+*.sol linguist-language=Solidity
+packages/sdk/src/generated/** linguist-generated=true
+pnpm-lock.yaml linguist-generated=true

@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# environment and key material
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+contracts/artifacts/
+contracts/cache/
+contracts/deployments/
+*.tsbuildinfo
+
+# logs and local state
+*.log
+.pnpm-store/
+.DS_Store
+Thumbs.db
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json

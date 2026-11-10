@@ -1,0 +1,313 @@
+{
+  "policy": {
+    "tierLimits": {
+      "Basic": { "perTransaction": "25000.00", "dailyOutflow": "50000.00", "maxBalance": "300000.00" },
+      "Full": { "perTransaction": "500000.00", "dailyOutflow": "1000000.00", "maxBalance": "0" }
+    },
+    "paymentSwitch": {
+      "defaultFeeBps": 100,
+      "acquirerShareBps": 7000,
+      "categoryFees": [
+        { "categoryCode": 5411, "feeBps": 50 },
+        { "categoryCode": 5912, "feeBps": 50 },
+        { "categoryCode": 4131, "feeBps": 30 },
+        { "categoryCode": 5261, "feeBps": 40 }
+      ]
+    },
+    "remittanceGateway": {
+      "incentiveBps": 250,
+      "rateBandBps": 150,
+      "rateValidityHours": 24,
+      "reviewWindowHours": 72,
+      "screeningThreshold": "500000.00"
+    },
+    "reserveController": { "maxStatementAgeHours": 48 }
+  },
+  "officers": [
+    {
+      "username": "ops.network",
+      "displayName": "Network Operations",
+      "role": "network_operator",
+      "institution": "NETWORK",
+      "keyIndex": 0,
+      "chainRoles": [
+        "registry:REGISTRAR_ROLE",
+        "registry:POLICY_ROLE",
+        "paymentSwitch:FEE_ROLE",
+        "gateway:CORRIDOR_ROLE"
+      ]
+    },
+    {
+      "username": "supervisor",
+      "displayName": "Supervisory Authority Desk",
+      "role": "supervisor",
+      "institution": null,
+      "keyIndex": 1,
+      "chainRoles": ["registry:SUPERVISOR_ROLE", "token:PAUSER_ROLE", "token:ENFORCEMENT_ROLE"]
+    },
+    {
+      "username": "maker.teesta",
+      "displayName": "Teesta Treasury Desk (maker)",
+      "role": "issuance_maker",
+      "institution": "TEESTA",
+      "keyIndex": 2,
+      "chainRoles": ["controller:MAKER_ROLE", "gateway:RATE_PUBLISHER_ROLE"]
+    },
+    {
+      "username": "checker.teesta",
+      "displayName": "Teesta Reserve Custody (checker)",
+      "role": "reserve_checker",
+      "institution": "TEESTA",
+      "keyIndex": 3,
+      "chainRoles": ["controller:CHECKER_ROLE"]
+    },
+    {
+      "username": "auditor",
+      "displayName": "Reserve Auditor",
+      "role": "reserve_auditor",
+      "institution": null,
+      "keyIndex": 4,
+      "chainRoles": ["controller:AUDITOR_ROLE"]
+    },
+    {
+      "username": "compliance",
+      "displayName": "AML Compliance Officer",
+      "role": "compliance_officer",
+      "institution": "NETWORK",
+      "keyIndex": 5,
+      "chainRoles": ["gateway:COMPLIANCE_ROLE"]
+    }
+  ],
+  "institutions": [
+    {
+      "id": "NETWORK",
+      "kind": "NetworkOperator",
+      "name": "TakaRail Network Operations",
+      "country": "BD",
+      "adminIndex": 0,
+      "settlementIndex": 6,
+      "adminUsername": "ops.network",
+      "operatorRole": "network_operator"
+    },
+    {
+      "id": "TEESTA",
+      "kind": "SettlementBank",
+      "name": "Teesta Settlement Bank",
+      "country": "BD",
+      "adminIndex": 7,
+      "settlementIndex": 8,
+      "adminUsername": "admin.teesta",
+      "operatorRole": "institution_admin"
+    },
+    {
+      "id": "SURMA",
+      "kind": "CommercialBank",
+      "name": "Surma Commercial Bank",
+      "country": "BD",
+      "adminIndex": 9,
+      "settlementIndex": 10,
+      "adminUsername": "admin.surma",
+      "operatorRole": "institution_admin"
+    },
+    {
+      "id": "HALDA",
+      "kind": "CommercialBank",
+      "name": "Halda Bank",
+      "country": "BD",
+      "adminIndex": 11,
+      "settlementIndex": 12,
+      "adminUsername": "admin.halda",
+      "operatorRole": "institution_admin"
+    },
+    {
+      "id": "SANGU",
+      "kind": "MobileFinancialService",
+      "name": "Sangu Pay",
+      "country": "BD",
+      "adminIndex": 13,
+      "settlementIndex": 14,
+      "adminUsername": "admin.sangu",
+      "operatorRole": "institution_admin"
+    },
+    {
+      "id": "DHOW",
+      "kind": "ExchangeHouse",
+      "name": "Dhow Exchange House, Dubai",
+      "country": "AE",
+      "adminIndex": 15,
+      "settlementIndex": 16,
+      "adminUsername": "ops.dhow",
+      "operatorRole": "exchange_house"
+    },
+    {
+      "id": "NAJD",
+      "kind": "ExchangeHouse",
+      "name": "Najd Remittance, Riyadh",
+      "country": "SA",
+      "adminIndex": 17,
+      "settlementIndex": 18,
+      "adminUsername": "ops.najd",
+      "operatorRole": "exchange_house"
+    },
+    {
+      "id": "SELAT",
+      "kind": "ExchangeHouse",
+      "name": "Selat Money Transfer, Kuala Lumpur",
+      "country": "MY",
+      "adminIndex": 19,
+      "settlementIndex": 20,
+      "adminUsername": "ops.selat",
+      "operatorRole": "exchange_house"
+    },
+    {
+      "id": "HUDSON",
+      "kind": "ExchangeHouse",
+      "name": "Hudson Remit, New York",
+      "country": "US",
+      "adminIndex": 21,
+      "settlementIndex": 22,
+      "adminUsername": "ops.hudson",
+      "operatorRole": "exchange_house"
+    },
+    {
+      "id": "TREASURY",
+      "kind": "Treasury",
+      "name": "Government Treasury - Remittance Incentive Account",
+      "country": "BD",
+      "adminIndex": 23,
+      "settlementIndex": 24,
+      "adminUsername": "treasury",
+      "operatorRole": "treasury"
+    }
+  ],
+  "corridors": [
+    {
+      "id": "AE-BD",
+      "currency": "AED",
+      "sourceCountry": "AE",
+      "maxAmount": "2500000.00",
+      "originators": ["DHOW"],
+      "referenceRate": "33.3300"
+    },
+    {
+      "id": "SA-BD",
+      "currency": "SAR",
+      "sourceCountry": "SA",
+      "maxAmount": "2500000.00",
+      "originators": ["NAJD"],
+      "referenceRate": "32.6300"
+    },
+    {
+      "id": "MY-BD",
+      "currency": "MYR",
+      "sourceCountry": "MY",
+      "maxAmount": "1500000.00",
+      "originators": ["SELAT"],
+      "referenceRate": "28.9500"
+    },
+    {
+      "id": "US-BD",
+      "currency": "USD",
+      "sourceCountry": "US",
+      "maxAmount": "2500000.00",
+      "originators": ["HUDSON"],
+      "referenceRate": "122.4000"
+    }
+  ],
+  "accounts": [
+    { "keyIndex": 30, "institution": "SANGU", "tier": "Basic", "label": "Rahima Begum", "district": "Cumilla" },
+    { "keyIndex": 31, "institution": "SURMA", "tier": "Full", "label": "Abdul Karim", "district": "Dhaka" },
+    { "keyIndex": 32, "institution": "SURMA", "tier": "Full", "label": "Nusrat Jahan", "district": "Chattogram" },
+    { "keyIndex": 33, "institution": "HALDA", "tier": "Full", "label": "Tanvir Ahmed", "district": "Sylhet" },
+    { "keyIndex": 34, "institution": "SANGU", "tier": "Basic", "label": "Shirin Akter", "district": "Noakhali" },
+    { "keyIndex": 35, "institution": "HALDA", "tier": "Full", "label": "Mizanur Rahman", "district": "Khulna" },
+    { "keyIndex": 36, "institution": "SANGU", "tier": "Basic", "label": "Fatema Khatun", "district": "Moulvibazar" },
+    { "keyIndex": 37, "institution": "SANGU", "tier": "Basic", "label": "Jahangir Alam", "district": "Feni" },
+    { "keyIndex": 38, "institution": "SURMA", "tier": "Full", "label": "Sultana Parvin", "district": "Rajshahi" },
+    { "keyIndex": 39, "institution": "HALDA", "tier": "Basic", "label": "Rafiqul Islam", "district": "Barishal" },
+    { "keyIndex": 40, "institution": "SANGU", "tier": "Full", "label": "Ayesha Siddiqua", "district": "Dhaka" },
+    { "keyIndex": 41, "institution": "SURMA", "tier": "Basic", "label": "Kamal Hossain", "district": "Brahmanbaria" },
+    { "keyIndex": 45, "institution": "SURMA", "tier": "Merchant", "label": "Nakshi Handicrafts", "district": "Dhaka" },
+    {
+      "keyIndex": 46,
+      "institution": "SURMA",
+      "tier": "Merchant",
+      "label": "Bhorer Bazar Superstore",
+      "district": "Chattogram"
+    },
+    { "keyIndex": 47, "institution": "HALDA", "tier": "Merchant", "label": "Shapla Pharmacy", "district": "Sylhet" },
+    { "keyIndex": 48, "institution": "SANGU", "tier": "Merchant", "label": "Rupsha Tea House", "district": "Khulna" },
+    {
+      "keyIndex": 49,
+      "institution": "SANGU",
+      "tier": "Merchant",
+      "label": "Jatrabari Bus Counter",
+      "district": "Dhaka"
+    },
+    {
+      "keyIndex": 50,
+      "institution": "HALDA",
+      "tier": "Merchant",
+      "label": "Dhanshiri Agro Inputs",
+      "district": "Bogura"
+    },
+    {
+      "keyIndex": 55,
+      "institution": "SURMA",
+      "tier": "Corporate",
+      "label": "Shitalakshya Knitwear Ltd.",
+      "district": "Narayanganj"
+    },
+    {
+      "keyIndex": 56,
+      "institution": "HALDA",
+      "tier": "Corporate",
+      "label": "Social Allowance Programme Office",
+      "district": "Dhaka"
+    },
+    { "keyIndex": 60, "institution": "SANGU", "tier": "Basic", "label": "Salma Khatun", "district": "Narayanganj" },
+    { "keyIndex": 61, "institution": "SANGU", "tier": "Basic", "label": "Rokeya Begum", "district": "Narayanganj" },
+    { "keyIndex": 62, "institution": "SANGU", "tier": "Basic", "label": "Jesmin Akter", "district": "Narayanganj" },
+    { "keyIndex": 63, "institution": "SANGU", "tier": "Basic", "label": "Shahida Begum", "district": "Narayanganj" },
+    { "keyIndex": 64, "institution": "SANGU", "tier": "Basic", "label": "Monira Khatun", "district": "Narayanganj" },
+    { "keyIndex": 65, "institution": "SANGU", "tier": "Basic", "label": "Parvin Akter", "district": "Narayanganj" },
+    { "keyIndex": 66, "institution": "SANGU", "tier": "Basic", "label": "Rina Begum", "district": "Narayanganj" },
+    { "keyIndex": 67, "institution": "SANGU", "tier": "Basic", "label": "Sabina Yasmin", "district": "Narayanganj" },
+    { "keyIndex": 68, "institution": "SANGU", "tier": "Basic", "label": "Nasima Akter", "district": "Gazipur" },
+    { "keyIndex": 69, "institution": "SANGU", "tier": "Basic", "label": "Lipi Begum", "district": "Gazipur" },
+    { "keyIndex": 70, "institution": "SANGU", "tier": "Basic", "label": "Rubina Khatun", "district": "Gazipur" },
+    { "keyIndex": 71, "institution": "SANGU", "tier": "Basic", "label": "Shefali Begum", "district": "Gazipur" },
+    { "keyIndex": 72, "institution": "SANGU", "tier": "Basic", "label": "Aleya Begum", "district": "Gazipur" },
+    { "keyIndex": 73, "institution": "SANGU", "tier": "Basic", "label": "Kulsum Begum", "district": "Gazipur" },
+    { "keyIndex": 74, "institution": "SANGU", "tier": "Basic", "label": "Morjina Khatun", "district": "Gazipur" },
+    { "keyIndex": 75, "institution": "SANGU", "tier": "Basic", "label": "Anwara Begum", "district": "Gazipur" },
+    { "keyIndex": 76, "institution": "HALDA", "tier": "Basic", "label": "Rahela Khatun", "district": "Narayanganj" },
+    { "keyIndex": 77, "institution": "HALDA", "tier": "Basic", "label": "Shahinur Akter", "district": "Narayanganj" },
+    { "keyIndex": 78, "institution": "HALDA", "tier": "Basic", "label": "Momtaz Begum", "district": "Narayanganj" },
+    { "keyIndex": 79, "institution": "HALDA", "tier": "Basic", "label": "Delwar Hossain", "district": "Narayanganj" },
+    { "keyIndex": 80, "institution": "SURMA", "tier": "Basic", "label": "Shafiqul Islam", "district": "Gazipur" },
+    { "keyIndex": 81, "institution": "SURMA", "tier": "Basic", "label": "Abul Kalam", "district": "Gazipur" },
+    { "keyIndex": 82, "institution": "SURMA", "tier": "Basic", "label": "Nurul Amin", "district": "Gazipur" },
+    { "keyIndex": 83, "institution": "SURMA", "tier": "Basic", "label": "Hosne Ara", "district": "Gazipur" }
+  ],
+  "merchants": [
+    { "id": "NAKSHI-01", "accountIndex": 45, "categoryCode": 5947, "name": "Nakshi Handicrafts", "city": "Dhaka" },
+    {
+      "id": "BHORER-01",
+      "accountIndex": 46,
+      "categoryCode": 5411,
+      "name": "Bhorer Bazar Superstore",
+      "city": "Chattogram"
+    },
+    { "id": "SHAPLA-01", "accountIndex": 47, "categoryCode": 5912, "name": "Shapla Pharmacy", "city": "Sylhet" },
+    { "id": "RUPSHA-01", "accountIndex": 48, "categoryCode": 5814, "name": "Rupsha Tea House", "city": "Khulna" },
+    { "id": "JATRA-01", "accountIndex": 49, "categoryCode": 4131, "name": "Jatrabari Bus Counter", "city": "Dhaka" },
+    {
+      "id": "DHANSHIRI-01",
+      "accountIndex": 50,
+      "categoryCode": 5261,
+      "name": "Dhanshiri Agro Inputs",
+      "city": "Bogura"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+node_modules
+dist
+pnpm-lock.yaml
+contracts/artifacts
+contracts/cache
+contracts/deployments
+packages/sdk/src/generated
+docs/diagrams/*.svg

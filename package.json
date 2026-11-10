@@ -1,0 +1,37 @@
+{
+  "name": "takarail",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TakaRail - blockchain payments and financial infrastructure for Bangladesh",
+  "license": "MIT",
+  "author": "Sadrul",
+  "packageManager": "pnpm@10.34.9",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "setup": "node scripts/init-env.mjs",
+    "db:up": "docker compose up -d postgres && node scripts/wait-for-db.mjs",
+    "db:down": "docker compose down",
+    "chain": "pnpm --filter @takarail/contracts chain",
+    "compile": "pnpm --filter @takarail/contracts compile",
+    "deploy:local": "pnpm --filter @takarail/contracts deploy:local",
+    "seed": "pnpm --filter @takarail/api seed",
+    "api": "pnpm --filter @takarail/api dev",
+    "console": "pnpm --filter @takarail/console dev",
+    "scenario": "pnpm --filter @takarail/api scenario",
+    "spec": "pnpm -r spec",
+    "typecheck": "pnpm -r typecheck",
+    "build": "pnpm -r build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "screens": "node scripts/capture-screens.mjs",
+    "diagrams": "node scripts/render-diagrams.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.0",
+    "prettier": "^3.6.2",
+    "prettier-plugin-solidity": "^2.1.0",
+    "viem": "^2.57.17"
+  }
+}
