@@ -1,0 +1,27 @@
+{
+  "name": "@takarail/sdk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared TakaRail definitions: contract ABIs, money maths, instruction encoders and the Bangla QR codec",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "spec": "mocha",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openzeppelin/merkle-tree": "^1.0.8",
+    "viem": "^2.57.17"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.15.0",
+    "mocha": "^10.8.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3"
+  }
+}
