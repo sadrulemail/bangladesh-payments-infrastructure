@@ -1,0 +1,21 @@
+sequenceDiagram
+    autonumber
+    participant C as Customer wallet<br/>(Sangu Pay)
+    participant T as TokenisedTaka
+    participant R as ParticipantRegistry
+    participant S as PaymentSwitch
+    participant M as Merchant wallet<br/>(Surma Bank)
+    participant A as Acquirer and network
+
+    Note over C: Scans the merchant's Bangla QR
+    C->>T: transferAndCall(switch, 2,450.00, pay NAKSHI-01 / INV-000451)
+    T->>R: policyOf(customer), policyOf(switch)
+    R-->>T: active, within tier limits
+    T->>S: onTransferReceived(customer, 2,450.00, instruction)
+    S->>S: invoice not yet paid, fee = 1%
+    S->>T: transfer 2,425.50
+    T-->>M: merchant credited
+    S->>T: transfer 17.15 and 7.35
+    T-->>A: acquirer and network fees
+    S-->>C: MerchantPaymentSettled
+    Note over C,A: One transaction: paid, fee split and final together

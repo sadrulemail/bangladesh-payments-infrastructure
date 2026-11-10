@@ -1,0 +1,11 @@
+flowchart LR
+    EVENTS["Contract events<br/>up to block N"] --> INDEXER["Indexer<br/><i>one database transaction<br/>per batch, with the cursor</i>"]
+    INDEXER --> MODELS["Read models<br/><i>payments, remittances,<br/>batches, directory</i>"]
+    INDEXER --> JOURNAL["Journal<br/><i>one balanced entry<br/>per token movement</i>"]
+
+    JOURNAL --> RECON{"Reconciliation<br/>at block N"}
+    CHAINBAL["balanceOf and totalSupply<br/>read at block N"] --> RECON
+    STATEMENT["Reserve statement<br/>in force"] --> RECON
+
+    RECON -- "every wallet equal,<br/>liabilities = supply = reserve asset" --> OK["Balanced"]
+    RECON -- "any difference" --> ALERT["Mismatch<br/>with the wallets that differ"]

@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant I as Member institution
+    participant TA as Trust account<br/>(settlement bank)
+    participant AU as Reserve auditor
+    participant MK as Maker
+    participant CK as Checker
+    participant RC as ReserveController
+    participant T as TokenisedTaka
+
+    I->>TA: sends taka by RTGS
+    AU->>RC: publishReserveStatement(balance, document hash)
+    MK->>RC: requestIssuance(institution, amount, RTGS reference)
+    Note over RC: Each bank reference funds one issuance
+    CK->>RC: approveIssuance(id)
+    RC->>RC: checker is not the maker,<br/>statement is current,<br/>supply + amount within the reserve
+    RC->>T: mint(settlement account, amount)
+    Note over I,T: Redemption runs the other way: the institution sends tBDT,<br/>the checker confirms the taka payout, the controller burns

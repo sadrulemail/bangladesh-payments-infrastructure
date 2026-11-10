@@ -1,0 +1,24 @@
+sequenceDiagram
+    autonumber
+    participant X as Exchange house<br/>(Dubai)
+    participant G as RemittanceGateway
+    participant P as Rate publisher
+    participant O as Compliance officer
+    participant B as Beneficiary wallet<br/>(Cumilla)
+
+    P->>G: publishRate(AE-BD, 33.3243)
+    Note over X: Collects AED 1,000 from the sender
+    X->>G: tBDT + instruction (beneficiary, AED 1,000, quoted rate, purpose, reference)
+    G->>G: originator authorised, rate inside the band,<br/>amount matches, reference not used
+    alt at or below the screening threshold
+        G->>B: 33,324.30 principal + 833.10 incentive
+    else above the screening threshold
+        G-->>O: held for review
+        alt released
+            O->>G: release
+            G->>B: principal + incentive
+        else rejected, or review window elapsed
+            O->>G: reject(reason)
+            G->>X: principal returned
+        end
+    end

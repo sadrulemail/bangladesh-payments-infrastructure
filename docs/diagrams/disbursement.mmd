@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    participant E as Employer wallet
+    participant BK as Employer's bank
+    participant H as DisbursementHub
+    participant W as Worker wallets
+
+    Note over E: Payout list stays off chain,<br/>its Merkle root goes on chain
+    E->>H: tBDT for the whole batch + (reference, Merkle root, count, purpose)
+    BK->>H: approve(batch)
+    loop in chunks
+        BK->>H: execute(batch, payouts with Merkle proofs)
+        H->>H: proof valid, payout not yet processed
+        H->>W: wage paid
+        Note over H,W: A frozen or closed wallet is recorded as failed,<br/>the other payouts go through
+    end
+    BK->>H: close(batch)
+    H->>E: undelivered amount returned

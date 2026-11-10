@@ -1,0 +1,46 @@
+flowchart LR
+    subgraph PEOPLE["Institutions on the network"]
+        direction TB
+        BANKS["Banks and mobile<br/>financial services"]
+        HOUSES["Exchange houses<br/>abroad"]
+        PAYERS["Employers and<br/>public programmes"]
+        OVERSIGHT["Supervisor, auditor<br/>and compliance"]
+    end
+
+    subgraph SERVICE["Settlement service"]
+        direction TB
+        CONSOLE["Operations console<br/><i>React</i>"]
+        API["Settlement API<br/><i>Fastify, role-based access</i>"]
+        CUSTODY["Custody signer<br/><i>one key per wallet</i>"]
+        INDEXER["Event indexer"]
+        LEDGER["Double-entry ledger<br/>and reconciliation"]
+        DB[("PostgreSQL<br/>read models, journal,<br/>audit trail")]
+        CONSOLE --> API
+        API --> CUSTODY
+        API --> DB
+        INDEXER --> LEDGER
+        INDEXER --> DB
+        LEDGER --> DB
+    end
+
+    subgraph CHAIN["Permissioned EVM network without gas fees"]
+        direction TB
+        RESERVE["ReserveController<br/><i>issuance and redemption</i>"]
+        SWITCH["PaymentSwitch<br/><i>merchants, transfers, refunds</i>"]
+        GATEWAY["RemittanceGateway<br/><i>corridors, rates, incentive</i>"]
+        HUB["DisbursementHub<br/><i>wages and allowances</i>"]
+        TOKEN["TokenisedTaka tBDT<br/><i>1 unit = 1 poisha</i>"]
+        REGISTRY["ParticipantRegistry<br/><i>institutions, KYC tiers, limits</i>"]
+        RESERVE -- "mints and burns" --> TOKEN
+        SWITCH --> TOKEN
+        GATEWAY --> TOKEN
+        HUB --> TOKEN
+        TOKEN -- "asks before every movement" --> REGISTRY
+    end
+
+    TRUST[("Reserve trust account<br/>taka at the settlement bank")]
+
+    PEOPLE --> SERVICE
+    SERVICE -- "signed transactions" --> CHAIN
+    CHAIN -- "events" --> SERVICE
+    TRUST -. "statement caps supply" .-> CHAIN
