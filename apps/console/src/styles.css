@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. The interface is written against roles, never raw colours.
+ * Brand green is the green of the national flag; data colours come from a palette checked for
+ * colour-vision deficiency and are kept apart from the status colours.
+ */
+@theme {
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Noto Sans Bengali", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+  --color-page: #f6f6f3;
+  --color-surface: #fcfcfb;
+  --color-sunken: #f0efec;
+  --color-ink: #0b0b0b;
+  --color-ink-2: #52514e;
+  --color-ink-3: #898781;
+  --color-line: #e1e0d9;
+  --color-axis: #c3c2b7;
+
+  --color-brand: #006a4e;
+  --color-brand-strong: #00523c;
+  --color-brand-wash: #e6f1ed;
+
+  --color-series-1: #2a78d6;
+  --color-series-2: #eb6834;
+  --color-series-1-wash: #cde2fb;
+
+  --color-good: #0ca30c;
+  --color-warning: #fab219;
+  --color-serious: #ec835a;
+  --color-critical: #d03b3b;
+}
+
+html {
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Columns of figures line up; standalone figures keep proportional digits. */
+.figures {
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}

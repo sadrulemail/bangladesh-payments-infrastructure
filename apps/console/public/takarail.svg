@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TakaRail">
+  <rect width="64" height="64" rx="14" fill="#006a4e" />
+  <path d="M14 46h36M14 52h36" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.55" />
+  <text x="32" y="38" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="32" font-weight="700" fill="#ffffff">&#2547;</text>
+</svg>
