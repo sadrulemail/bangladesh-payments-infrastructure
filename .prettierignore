@@ -6,3 +6,7 @@ contracts/cache
 contracts/deployments
 packages/sdk/src/generated
 docs/diagrams/*.svg
+
+# Local notes kept outside version control
+*.local.md
+docs/STATUS.md

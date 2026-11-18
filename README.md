@@ -200,8 +200,9 @@ All profiles share the passphrase printed by `pnpm setup` (`OPERATOR_PASSPHRASE`
 
 ### What the reference scenario leaves for you
 
-The scenario plays about 280 operations over seven business days and ends at the present. It leaves
-work waiting for a decision, so every role has something to do:
+The scenario plays up to seven business days, about 250 to 290 operations, and ends at the present. The
+current day takes part once it has been open in Dhaka for two hours. It leaves work waiting for a decision,
+so every role has something to do:
 
 | Sign in as       | Then                                                                                                                          |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
