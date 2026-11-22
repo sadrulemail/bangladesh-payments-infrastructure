@@ -1,9 +1,18 @@
 import type { FastifyReply } from "fastify";
 
 const NEEDS_QUOTES = /[",\r\n]/;
+/** A spreadsheet runs a cell that starts with one of these characters as a formula. */
+const FORMULA_START = /^[=+\-@\t\r]/;
+const NUMBER = /^-?\d+(\.\d+)?$/;
+
+/**
+ * Account labels and merchant names are typed by institutions, so a cell could carry a formula. Such text
+ * is prefixed with an apostrophe; numbers, negative positions included, stay as they are.
+ */
+const neutralise = (text: string) => (FORMULA_START.exec(text) && !NUMBER.exec(text) ? `'${text}` : text);
 
 const escape = (value: unknown) => {
-  const text = value === null || value === undefined ? "" : String(value);
+  const text = neutralise(value === null || value === undefined ? "" : String(value));
   return NEEDS_QUOTES.exec(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

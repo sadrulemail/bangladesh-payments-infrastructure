@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   const shutdown = async () => {
     clearInterval(reconciliation);
-    indexer.stop();
+    await indexer.stop();
     await app.close();
     await pool.end();
   };

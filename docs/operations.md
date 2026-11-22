@@ -50,7 +50,9 @@ The API applies pending migrations when it starts. Migrations are plain SQL file
 ## Reset
 
 The local node keeps its state in memory, so a reset is: stop the node and the API, drop the database
-volume, and start again from step 3.
+volume, and start again from step 3. When the node has restarted without this reset, the API refuses to
+start: the block its read models end at is missing or different on the new chain, and the message names
+this reset.
 
 ```bash
 docker compose down -v
@@ -85,8 +87,17 @@ DELETE FROM ledger_accounts WHERE wallet IS NOT NULL;
    Each transfer must have exactly one entry.
 4. If an entry is missing, rebuild the read models as above and run reconciliation again.
 
-A difference between supply and the reserve statement is a different matter: issuance stops by itself
-when the statement is older than the configured age or smaller than supply plus the request.
+## When reconciliation reports a shortfall
+
+A shortfall means the books agree with the chain, but the supply is larger than the most recent
+reserve statement. Issuance stops by itself in that state, as it does when the statement is older than
+the configured age.
+
+1. Compare the statement with the trust account. A redemption whose taka has been paid out but whose
+   payout the checker has not confirmed yet still counts in the supply: confirming it burns the tBDT
+   and closes the gap.
+2. Otherwise the auditor publishes a current statement, and the next run shows whether the reserve
+   covers the supply again.
 
 ## Extending the reference network
 
@@ -113,7 +124,7 @@ The contracts need nothing from the local node. A Hyperledger Besu network with 
 
 | Command                                   | Purpose                                                    |
 | ----------------------------------------- | ---------------------------------------------------------- |
-| `pnpm spec`                               | Contract and SDK specifications                            |
+| `pnpm spec`                               | Contract, SDK and API specifications                       |
 | `pnpm typecheck`                          | Strict TypeScript across all packages                      |
 | `pnpm format` / `pnpm format:check`       | Prettier for TypeScript, JSON and Solidity                 |
 | `pnpm --filter @takarail/contracts build` | Compiles the contracts and regenerates the ABIs in the SDK |

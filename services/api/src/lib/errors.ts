@@ -5,6 +5,8 @@ export class AppError extends Error {
     readonly code: string,
     message: string,
     readonly details?: unknown,
+    /** Response headers that go with the error, for instance `retry-after`. */
+    readonly headers?: Record<string, string>,
   ) {
     super(message);
     this.name = "AppError";
@@ -16,6 +18,8 @@ export const unauthorised = (message = "Sign in to continue") => new AppError(40
 export const forbidden = (message = "Your role does not allow this action") => new AppError(403, "FORBIDDEN", message);
 export const notFound = (what: string) => new AppError(404, "NOT_FOUND", `${what} was not found`);
 export const conflict = (message: string) => new AppError(409, "CONFLICT", message);
+export const tooManyRequests = (message: string, retryAfterSeconds: number) =>
+  new AppError(429, "TOO_MANY_ATTEMPTS", message, { retryAfterSeconds }, { "retry-after": String(retryAfterSeconds) });
 
 /** The network refused a transaction. `reason` is the name of the contract error. */
 export class ContractRevert extends AppError {

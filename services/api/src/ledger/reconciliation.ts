@@ -4,20 +4,17 @@
  *   1. every wallet balance in the ledger equals `balanceOf` on chain,
  *   2. wallet liabilities, the reserve asset and `totalSupply` are the same figure,
  *   3. that figure is covered by the most recent reserve statement.
+ *
+ * This module reads the figures and records the run; `assess` decides its outcome.
  */
 import type { Address } from "viem";
 
 import { contracts, publicClient } from "../chain/network";
-import { pool, query, queryOne } from "../db/pool";
+import { pool, query, queryOne, transaction } from "../db/pool";
+import { type Mismatch, type ReconciliationStatus, assess } from "./assessment";
 import { RESERVE_ACCOUNT_CODE } from "./posting";
 
 const READS_IN_PARALLEL = 25;
-
-export interface Mismatch {
-  wallet: string;
-  ledger: string;
-  chain: string;
-}
 
 export interface ReconciliationRun {
   id: string;
@@ -29,7 +26,7 @@ export interface ReconciliationRun {
   reportedReserve: string | null;
   walletsChecked: number;
   mismatches: Mismatch[];
-  status: "Balanced" | "Mismatch";
+  status: ReconciliationStatus;
   triggeredBy: string;
 }
 
@@ -37,43 +34,38 @@ interface LedgerSnapshot {
   blockNumber: bigint;
   wallets: { wallet: string; balance: bigint }[];
   reserve: bigint;
-  reportedReserve: string | null;
+  reportedReserve: bigint | null;
 }
 
 /** Reads the cursor and the ledger from one snapshot, so both describe the same block. */
-async function ledgerSnapshot(): Promise<LedgerSnapshot> {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const cursor = await queryOne<{ blockNumber: string }>(
-      client,
-      "SELECT block_number FROM indexer_cursor WHERE id = 1",
-    );
-    const balances = await query<{ code: string; wallet: string | null; balance: string }>(
-      client,
-      "SELECT code, wallet, balance FROM ledger_balances",
-    );
-    const statement = await queryOne<{ balance: string }>(
-      client,
-      "SELECT balance FROM reserve_statements ORDER BY idx DESC LIMIT 1",
-    );
-    await client.query("COMMIT");
+function ledgerSnapshot(): Promise<LedgerSnapshot> {
+  return transaction(
+    async (client) => {
+      const cursor = await queryOne<{ blockNumber: string }>(
+        client,
+        "SELECT block_number FROM indexer_cursor WHERE id = 1",
+      );
+      if (!cursor) throw new Error("The indexer has not processed any block yet");
 
-    if (!cursor) throw new Error("The indexer has not processed any block yet");
-    return {
-      blockNumber: BigInt(cursor.blockNumber),
-      wallets: balances
-        .filter((row): row is typeof row & { wallet: string } => row.wallet !== null)
-        .map((row) => ({ wallet: row.wallet, balance: BigInt(row.balance) })),
-      reserve: BigInt(balances.find((row) => row.code === RESERVE_ACCOUNT_CODE)?.balance ?? 0),
-      reportedReserve: statement?.balance ?? null,
-    };
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
+      const balances = await query<{ code: string; wallet: string | null; balance: string }>(
+        client,
+        "SELECT code, wallet, balance FROM ledger_balances",
+      );
+      const statement = await queryOne<{ balance: string }>(
+        client,
+        "SELECT balance FROM reserve_statements ORDER BY idx DESC LIMIT 1",
+      );
+      return {
+        blockNumber: BigInt(cursor.blockNumber),
+        wallets: balances
+          .filter((row): row is typeof row & { wallet: string } => row.wallet !== null)
+          .map((row) => ({ wallet: row.wallet, balance: BigInt(row.balance) })),
+        reserve: BigInt(balances.find((row) => row.code === RESERVE_ACCOUNT_CODE)?.balance ?? 0),
+        reportedReserve: statement ? BigInt(statement.balance) : null,
+      };
+    },
+    { snapshot: true },
+  );
 }
 
 async function chainBalances(wallets: string[], blockNumber: bigint): Promise<Map<string, bigint>> {
@@ -100,20 +92,17 @@ export async function reconcile(triggeredBy: string): Promise<ReconciliationRun>
   const { blockNumber } = snapshot;
 
   const totalSupply = await publicClient.readContract({ ...contracts.token, functionName: "totalSupply", blockNumber });
-  const onChain = await chainBalances(
+  const chain = await chainBalances(
     snapshot.wallets.map((row) => row.wallet),
     blockNumber,
   );
-
-  const mismatches: Mismatch[] = snapshot.wallets
-    .filter((row) => onChain.get(row.wallet) !== row.balance)
-    .map((row) => ({
-      wallet: row.wallet,
-      ledger: row.balance.toString(),
-      chain: (onChain.get(row.wallet) ?? 0n).toString(),
-    }));
-  const liabilities = snapshot.wallets.reduce((sum, row) => sum + row.balance, 0n);
-  const balanced = mismatches.length === 0 && liabilities === totalSupply && snapshot.reserve === totalSupply;
+  const outcome = assess({
+    ledger: snapshot.wallets,
+    chain,
+    totalSupply,
+    ledgerReserve: snapshot.reserve,
+    reportedReserve: snapshot.reportedReserve,
+  });
 
   const run = await queryOne<ReconciliationRun>(
     pool,
@@ -125,12 +114,12 @@ export async function reconcile(triggeredBy: string): Promise<ReconciliationRun>
     [
       blockNumber,
       totalSupply,
-      liabilities,
+      outcome.liabilities,
       snapshot.reserve,
       snapshot.reportedReserve,
       snapshot.wallets.length,
-      JSON.stringify(mismatches),
-      balanced ? "Balanced" : "Mismatch",
+      JSON.stringify(outcome.mismatches),
+      outcome.status,
       triggeredBy,
     ],
   );

@@ -37,16 +37,24 @@ async function reserveAccountId(db: Queryable): Promise<number> {
   return account.id;
 }
 
-/** Ledger account of a wallet, opened on its first movement. */
+/**
+ * Ledger account of a wallet, opened on its first movement. The account is read first, so a posting
+ * writes no row of `ledger_accounts` once the wallet has one.
+ */
 async function walletAccountId(db: Queryable, wallet: string): Promise<number> {
-  const account = await queryOne<{ id: number }>(
+  const find = () => queryOne<{ id: number }>(db, "SELECT id FROM ledger_accounts WHERE wallet = $1", [wallet]);
+  const existing = await find();
+  if (existing) return existing.id;
+
+  const opened = await queryOne<{ id: number }>(
     db,
     `INSERT INTO ledger_accounts (code, name, category, wallet)
      VALUES ($1, $2, 'liability', $3)
-     ON CONFLICT (wallet) DO UPDATE SET wallet = EXCLUDED.wallet
+     ON CONFLICT (wallet) DO NOTHING
      RETURNING id`,
     [`${WALLET_ACCOUNT_PREFIX}:${wallet}`, `Wallet ${wallet}`, wallet],
   );
+  const account = opened ?? (await find());
   if (!account) throw new Error(`Could not open a ledger account for ${wallet}`);
   return account.id;
 }

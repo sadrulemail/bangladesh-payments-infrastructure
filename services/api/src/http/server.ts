@@ -2,12 +2,13 @@ import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import Fastify, { type FastifyError, type FastifyInstance } from "fastify";
+import Fastify, { type FastifyError, type FastifyInstance, LogController } from "fastify";
 import { ZodError } from "zod";
 
 import { authRoutes } from "../auth/routes";
 import { config } from "../config";
 import { AppError } from "../lib/errors";
+import { toJson } from "../lib/json";
 import { directoryRoutes } from "../modules/directory";
 import { disbursementRoutes } from "../modules/disbursements";
 import { ledgerRoutes } from "../modules/ledger";
@@ -17,9 +18,6 @@ import { remittanceRoutes } from "../modules/remittances";
 import { reportRoutes } from "../modules/reports";
 import { reserveRoutes } from "../modules/reserves";
 
-const toJson = (payload: unknown) =>
-  JSON.stringify(payload, (_key, value: unknown) => (typeof value === "bigint" ? value.toString() : value));
-
 function errorBody(code: string, message: string, details?: unknown) {
   return { error: { code, message, details } };
 }
@@ -27,7 +25,7 @@ function errorBody(code: string, message: string, details?: unknown) {
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: { level: config.environment === "production" ? "info" : "warn" },
-    disableRequestLogging: config.environment !== "production",
+    logController: new LogController({ disableRequestLogging: config.environment !== "production" }),
   });
 
   // Input is validated by the zod schema of each route; the JSON schemas only document the API.
@@ -57,6 +55,7 @@ export async function buildServer(): Promise<FastifyInstance> {
       return reply.status(400).send(errorBody("VALIDATION", "The request is not valid", details));
     }
     if (error instanceof AppError) {
+      if (error.headers) void reply.headers(error.headers);
       return reply.status(error.status).send(errorBody(error.code, error.message, error.details));
     }
     const status = "statusCode" in error && typeof error.statusCode === "number" ? error.statusCode : 500;

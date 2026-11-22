@@ -72,6 +72,13 @@ export function route<
   const { access } = options;
   const roles = typeof access === "string" ? "" : ` Roles: ${access.join(", ")}.`;
 
+  // Only the parts a route has: Fastify warns about a schema key that is present but empty.
+  const inputs = Object.entries({
+    body: documentation(options.body),
+    querystring: documentation(options.query),
+    params: documentation(options.params),
+  }).filter(([, schema]) => schema !== undefined);
+
   app.route({
     method: options.method,
     url: options.url,
@@ -80,9 +87,7 @@ export function route<
       summary: options.summary,
       description: access === "public" ? "No session required." : `Requires a session.${roles}`,
       security: access === "public" ? [] : [{ bearer: [] }],
-      body: documentation(options.body),
-      querystring: documentation(options.query),
-      params: documentation(options.params),
+      ...Object.fromEntries(inputs),
     },
     handler: async (request, reply) => {
       let operator: Operator | undefined;

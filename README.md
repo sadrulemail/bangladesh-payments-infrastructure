@@ -227,12 +227,15 @@ pnpm typecheck
 pnpm format:check
 ```
 
-- **88 contract specifications** cover every contract: roles, limits, maker-checker, rate bands,
+- **91 contract specifications** cover every contract: roles, limits, maker-checker, rate bands,
   Merkle proofs, refunds and failure paths. A separate suite checks conservation of value across all
   modules: the whole supply sits in known accounts, stays within the reserve, and every module holds
   exactly what it owes.
 - **24 SDK specifications** cover poisha-exact money maths, reference packing, the Bangla QR codec
   including its checksum, and the payout Merkle tree.
+- **24 API specifications** cover the outcome of a reconciliation run (balanced, mismatch, reserve
+  shortfall), the parsing of amounts, rates and references, passphrase hashing, the sign-in throttle
+  and CSV exports.
 - **The reference scenario** runs the full stack and ends with a three-way reconciliation
   (ledger, chain balances, reserve) that must come out balanced.
 - TypeScript is strict in every package, and the database refuses a journal entry whose debits and

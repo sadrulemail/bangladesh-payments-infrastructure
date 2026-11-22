@@ -8,11 +8,12 @@
  * immediate finality that is zero and no rollback handling is needed.
  */
 import { type ContractName, abis } from "@takarail/sdk";
-import { type Abi, type Log, decodeEventLog } from "viem";
+import { type Abi, BlockNotFoundError, type Hex, type Log, decodeEventLog } from "viem";
 
 import { allAddresses, contractNameOf, deployment, publicClient } from "../chain/network";
 import { config } from "../config";
 import { type Queryable, pool, queryOne, transaction } from "../db/pool";
+import { toJson } from "../lib/json";
 import { disbursementProjections } from "./projections/disbursements";
 import { paymentProjections } from "./projections/payments";
 import { registryProjections } from "./projections/registry";
@@ -32,12 +33,22 @@ const projections: Record<ContractName, ProjectionMap> = {
   hub: disbursementProjections,
 };
 
-const toJson = (value: unknown) =>
-  JSON.stringify(value, (_key, item: unknown) => (typeof item === "bigint" ? item.toString() : item));
-
 interface Waiter {
   block: bigint;
   resolve: () => void;
+}
+
+interface IndexedBlock {
+  /** Block timestamp as an ISO string. */
+  time: string;
+  hash: Hex;
+}
+
+interface SavedCursor {
+  blockNumber: string;
+  blockTime: string | null;
+  /** Null for a cursor written before block hashes were kept. */
+  blockHash: Hex | null;
 }
 
 export class Indexer {
@@ -53,27 +64,47 @@ export class Indexer {
   }
 
   async start(): Promise<void> {
-    const saved = await queryOne<{ blockNumber: string }>(pool, "SELECT block_number FROM indexer_cursor WHERE id = 1");
-    if (saved) this.cursor = BigInt(saved.blockNumber);
+    const saved = await queryOne<SavedCursor>(
+      pool,
+      "SELECT block_number, block_time, block_hash FROM indexer_cursor WHERE id = 1",
+    );
+    if (saved) {
+      await this.verifyChain(saved);
+      this.cursor = BigInt(saved.blockNumber);
+    }
     this.stopped = false;
     await this.poll();
     this.schedule();
   }
 
-  stop(): void {
+  /** Stops polling and waits for a pass in progress, so its transaction is not cut short. */
+  async stop(): Promise<void> {
     this.stopped = true;
     clearTimeout(this.timer);
+    await this.polling?.catch(() => undefined);
   }
 
   /** Resolves once the read models include `block`. Used to give commands read-your-writes. */
   async caughtUpTo(block: bigint, timeoutMs = 20_000): Promise<void> {
     if (this.cursor >= block) return;
-    const reached = new Promise<void>((resolve) => this.waiters.push({ block, resolve }));
-    const timeout = new Promise<never>((_resolve, reject) =>
-      setTimeout(() => reject(new Error(`The indexer did not reach block ${block} in time`)), timeoutMs).unref(),
-    );
-    void this.poll();
-    await Promise.race([reached, timeout]);
+    let waiter: Waiter | undefined;
+    let timer: NodeJS.Timeout | undefined;
+    const reached = new Promise<void>((resolve) => {
+      waiter = { block, resolve };
+      this.waiters.push(waiter);
+    });
+    const expired = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`The indexer did not reach block ${block} in time`)), timeoutMs);
+      timer.unref();
+    });
+    // A pass that fails is reported and retried by the scheduled loop; this caller keeps waiting.
+    this.poll().catch(() => undefined);
+    try {
+      await Promise.race([reached, expired]);
+    } finally {
+      clearTimeout(timer);
+      this.waiters = this.waiters.filter((item) => item !== waiter);
+    }
   }
 
   /** Runs one pass. Concurrent callers share the pass that is already running. */
@@ -107,19 +138,21 @@ export class Indexer {
 
   private async applyRange(from: bigint, to: bigint): Promise<void> {
     const logs = await publicClient.getLogs({ address: allAddresses, fromBlock: from, toBlock: to });
-    const blockTimes = await this.blockTimes([...logs.map((log) => log.blockNumber), to]);
+    const blocks = await this.blocks([...logs.map((log) => log.blockNumber), to]);
     const events = logs
-      .map((log) => this.decode(log, blockTimes))
+      .map((log) => this.decode(log, blocks))
       .filter((event): event is ChainEvent => event !== undefined);
+    const last = blocks.get(to);
 
     await transaction(async (db) => {
       for (const event of events) await this.apply(db, event);
       await db.query(
-        `INSERT INTO indexer_cursor (id, block_number, block_time, updated_at)
-         VALUES (1, $1, $2, now())
+        `INSERT INTO indexer_cursor (id, block_number, block_time, block_hash, updated_at)
+         VALUES (1, $1, $2, $3, now())
          ON CONFLICT (id) DO UPDATE
-           SET block_number = EXCLUDED.block_number, block_time = EXCLUDED.block_time, updated_at = now()`,
-        [to, blockTimes.get(to)],
+           SET block_number = EXCLUDED.block_number, block_time = EXCLUDED.block_time,
+               block_hash = EXCLUDED.block_hash, updated_at = now()`,
+        [to, last?.time, last?.hash],
       );
     });
   }
@@ -142,7 +175,7 @@ export class Indexer {
     if (projection) await projection(db, event as ChainEvent<never>);
   }
 
-  private decode(log: Log, blockTimes: Map<bigint, string>): ChainEvent | undefined {
+  private decode(log: Log, blocks: Map<bigint, IndexedBlock>): ChainEvent | undefined {
     const contract = contractNameOf(log.address);
     if (!contract || log.blockNumber === null || log.transactionHash === null || log.logIndex === null) {
       return undefined;
@@ -155,7 +188,7 @@ export class Indexer {
         name: decoded.eventName,
         args: (decoded.args ?? {}) as unknown as Record<string, unknown>,
         blockNumber: log.blockNumber,
-        blockTime: blockTimes.get(log.blockNumber) as string,
+        blockTime: blocks.get(log.blockNumber)?.time as string,
         txHash: log.transactionHash,
         logIndex: log.logIndex,
       };
@@ -165,10 +198,43 @@ export class Indexer {
     }
   }
 
-  private async blockTimes(blockNumbers: (bigint | null)[]): Promise<Map<bigint, string>> {
+  private async blocks(blockNumbers: (bigint | null)[]): Promise<Map<bigint, IndexedBlock>> {
     const distinct = [...new Set(blockNumbers.filter((value): value is bigint => value !== null))];
     const blocks = await Promise.all(distinct.map((blockNumber) => publicClient.getBlock({ blockNumber })));
-    return new Map(blocks.map((block) => [block.number, new Date(Number(block.timestamp) * 1000).toISOString()]));
+    return new Map(
+      blocks.map((block) => [
+        block.number,
+        { time: new Date(Number(block.timestamp) * 1000).toISOString(), hash: block.hash },
+      ]),
+    );
+  }
+
+  /**
+   * Refuses to go on when the node no longer has the block the read models end at: a local node that
+   * restarted, or a reorganisation deeper than `CONFIRMATIONS`. Extending the read models would mix the
+   * events of two chains.
+   */
+  private async verifyChain(saved: SavedCursor): Promise<void> {
+    const blockNumber = BigInt(saved.blockNumber);
+    const block = await publicClient.getBlock({ blockNumber }).catch((error: unknown) => {
+      if (error instanceof BlockNotFoundError) return null;
+      throw error;
+    });
+    // A cursor written before block hashes were kept is compared by the time of its block instead.
+    const same =
+      block !== null &&
+      (saved.blockHash !== null
+        ? block.hash === saved.blockHash
+        : saved.blockTime === null || new Date(Number(block.timestamp) * 1000).toISOString() === saved.blockTime);
+    if (same) return;
+
+    const found = block
+      ? `block ${blockNumber} of the node is a different block`
+      : `the node has no block ${blockNumber}`;
+    throw new Error(
+      `The database holds read models of another chain: ${found}. Reset the database ("docker compose down -v", ` +
+        `then "pnpm db:up" and "pnpm seed"), or connect the API to the chain it indexed.`,
+    );
   }
 
   private release(): void {

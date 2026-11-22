@@ -7,5 +7,7 @@ flowchart LR
     CHAINBAL["balanceOf and totalSupply<br/>read at block N"] --> RECON
     STATEMENT["Reserve statement<br/>in force"] --> RECON
 
-    RECON -- "every wallet equal,<br/>liabilities = supply = reserve asset" --> OK["Balanced"]
+    RECON -- "every wallet equal,<br/>liabilities = supply = reserve asset" --> COVER{"Supply within<br/>the statement?"}
     RECON -- "any difference" --> ALERT["Mismatch<br/>with the wallets that differ"]
+    COVER -- "yes" --> OK["Balanced"]
+    COVER -- "no" --> SHORT["Shortfall<br/>supply above the reserve statement"]

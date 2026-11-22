@@ -31,7 +31,7 @@ const addressAt = (index: number) => accountAt(index).address.toLowerCase();
 
 async function main(): Promise<void> {
   await migrate();
-  const passwordHash = hashPassphrase(config.auth.operatorPassphrase);
+  const passwordHash = await hashPassphrase(config.auth.operatorPassphrase);
 
   const operators = [
     ...reference.officers,

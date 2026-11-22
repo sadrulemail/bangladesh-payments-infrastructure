@@ -8,33 +8,50 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { pool, query, transaction } from "./pool";
+import { pool, query } from "./pool";
 
 const directory = path.join(path.dirname(fileURLToPath(import.meta.url)), "migrations");
 
+/** Key of the advisory lock held while migrating. */
+const MIGRATION_LOCK = 72_431_005;
+
 export async function migrate(): Promise<string[]> {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS schema_migrations (
-      name       text PRIMARY KEY,
-      applied_at timestamptz NOT NULL DEFAULT now()
-    )`);
-  const applied = new Set(
-    (await query<{ name: string }>(pool, "SELECT name FROM schema_migrations")).map((row) => row.name),
-  );
+  const client = await pool.connect();
+  try {
+    // The API and the seed script both migrate when they start. The lock makes the second one wait for
+    // the first and then find nothing left to apply.
+    await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK]);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        name       text PRIMARY KEY,
+        applied_at timestamptz NOT NULL DEFAULT now()
+      )`);
+    const applied = new Set(
+      (await query<{ name: string }>(client, "SELECT name FROM schema_migrations")).map((row) => row.name),
+    );
 
-  const pending = fs
-    .readdirSync(directory)
-    .filter((file) => file.endsWith(".sql") && !applied.has(file))
-    .sort();
+    const pending = fs
+      .readdirSync(directory)
+      .filter((file) => file.endsWith(".sql") && !applied.has(file))
+      .sort();
 
-  for (const file of pending) {
-    const sql = fs.readFileSync(path.join(directory, file), "utf8");
-    await transaction(async (client) => {
-      await client.query(sql);
-      await client.query("INSERT INTO schema_migrations (name) VALUES ($1)", [file]);
-    });
+    for (const file of pending) {
+      const sql = fs.readFileSync(path.join(directory, file), "utf8");
+      await client.query("BEGIN");
+      try {
+        await client.query(sql);
+        await client.query("INSERT INTO schema_migrations (name) VALUES ($1)", [file]);
+        await client.query("COMMIT");
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      }
+    }
+    return pending;
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK]).catch(() => undefined);
+    client.release();
   }
-  return pending;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

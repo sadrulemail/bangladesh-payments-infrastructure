@@ -126,9 +126,13 @@ that also advances the cursor. The properties that follow:
 - A crash between batches loses nothing and applies nothing twice.
 - The indexer stays `CONFIRMATIONS` blocks behind the head. On a network with immediate finality
   (QBFT) that value is zero and no rollback logic is needed.
+- The cursor keeps the hash of its block. On start the indexer checks that the node still has that
+  block. After a node restart or a reorganisation deeper than `CONFIRMATIONS`, the API refuses to start
+  instead of extending the read models of one chain with the events of another.
 
-Commands submitted through the API return only after the indexer has passed the block of their
-transaction, so a query that follows a command always sees its effect.
+Commands submitted through the API wait for the indexer to pass the block of their transaction, so a
+query that follows a command sees its effect. If that takes longer than 20 seconds, the answer says so
+(`indexed: false`); the command is settled either way.
 
 ### Ledger
 
@@ -149,13 +153,15 @@ balance.
 ### Reconciliation
 
 A run reads the cursor and all ledger balances from one repeatable-read snapshot, then reads
-`totalSupply` and every `balanceOf` from the chain at that same block. The run is balanced when:
+`totalSupply` and every `balanceOf` from the chain at that same block. It checks that:
 
 1. every wallet balance in the ledger equals the chain balance,
 2. wallet liabilities, the reserve asset account and `totalSupply` are the same figure,
+3. the most recent reserve statement covers that figure.
 
-and it records the reserve statement in force beside the result. Runs happen on a schedule and on
-request, and every run is kept.
+A run that fails the first or the second check is a **Mismatch** and lists the wallets that differ. A
+run whose books agree with the chain but whose supply is above the statement is a **Shortfall**.
+Otherwise it is **Balanced**. Runs happen on a schedule and on request, and every run is kept.
 
 ### Custody
 
@@ -173,8 +179,13 @@ replaces it with an HSM or a KMS without touching the rest of the service.
 - Every command is simulated before it is sent. A revert surfaces as HTTP 422 with the contract's own
   error name, for instance `DailyLimitExceeded` or `ReserveExceeded`.
 - Every command is written to the audit log with the operator, the signer and the outcome, whether
-  the network accepted it or not.
-- Sessions are JWTs; passphrases are stored as scrypt hashes.
+  the network accepted it or not. A command the network accepted is recorded as accepted at once. If
+  the read models take longer than usual to reach its block, the answer says so (`indexed: false`)
+  rather than reporting a failure that could lead an operator to send the command again.
+- Sessions are JWTs. Passphrases are stored as scrypt hashes, derived off the event loop. An unknown
+  username takes as long to refuse as a wrong passphrase, and five failed attempts for one username
+  from one address within 15 minutes pause sign-in for that pair until the 15 minutes have passed
+  (HTTP 429 with `retry-after`).
 
 ### Data model
 
@@ -209,7 +220,13 @@ group is the only state the service owns.
   tokens. The token does not call receivers on a plain transfer, so module payouts cannot re-enter.
 - **Supply control.** Only the reserve controller can mint or burn.
 - **Enforcement.** A forced transfer needs the enforcement role and a legal order reference, bypasses
-  limits and the pause, and still requires an eligible receiver.
+  limits and the pause, and still requires an eligible receiver. Neither end can be the zero address,
+  so an order moves funds that exist and never mints or burns.
+- **Funds in modules.** A settlement module takes funds only together with an instruction. The payment
+  switch refuses a person transfer to a system account, so no module holds funds it owes to nobody.
 - **Bounded parameters.** Fees are capped at 3%, the incentive at 10%, and policy changes emit events.
+- **Exports.** A text cell of a CSV export that a spreadsheet would run as a formula is prefixed with an
+  apostrophe; numbers are left as they are.
 - **Known limits of this reference.** Read endpoints are open to every signed-in operator; a
-  production deployment partitions them by institution. The custody keystore is software.
+  production deployment partitions them by institution. The custody keystore is software, and the
+  sign-in throttle counts attempts in the memory of one API process.
