@@ -69,6 +69,9 @@ const RUN_COLUMNS: Column<ReconciliationRun>[] = [
         {run.mismatches.length > 0 && (
           <span className="block text-xs text-critical">{run.mismatches.length} wallets differ</span>
         )}
+        {run.status === "Shortfall" && (
+          <span className="block text-xs text-critical">Supply exceeds the reserve statement</span>
+        )}
       </span>
     ),
   },

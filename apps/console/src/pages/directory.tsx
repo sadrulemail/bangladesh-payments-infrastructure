@@ -375,7 +375,11 @@ function QrDialog({ merchant, onClose }: { merchant: Merchant; onClose: () => vo
         </div>
         <div className="qr flex aspect-square items-center justify-center rounded-lg border border-line bg-white p-3">
           {code ? (
-            <div className="w-full" dangerouslySetInnerHTML={{ __html: code.svg }} />
+            // Drawn as an image, so nothing inside the SVG the API returns can run in the console.
+            <img
+              alt={`Bangla QR code for ${merchant.name}`}
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(code.svg)}`}
+            />
           ) : (
             <span className="text-xs text-ink-3">The code appears here</span>
           )}

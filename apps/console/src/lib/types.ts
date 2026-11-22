@@ -49,7 +49,8 @@ export interface ReconciliationRun {
   reportedReserve: string | null;
   walletsChecked: number;
   mismatches: { wallet: string; ledger: string; chain: string }[];
-  status: "Balanced" | "Mismatch";
+  /** Shortfall: the books agree with the chain, but supply is larger than the reserve statement. */
+  status: "Balanced" | "Mismatch" | "Shortfall";
   triggeredBy: string;
 }
 

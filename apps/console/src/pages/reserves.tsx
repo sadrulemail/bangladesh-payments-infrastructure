@@ -37,6 +37,53 @@ function Reference({ name, code }: { name: string; code: string }) {
   );
 }
 
+interface Rejection {
+  kind: "issuance" | "redemptions";
+  id: string;
+  amount: string;
+}
+
+/** Asks the checker for the reason code that is recorded on chain with a rejection. */
+function RejectRequestDialog({ rejection, onClose }: { rejection: Rejection; onClose: () => void }) {
+  const command = useCommand(onClose);
+  const [reason, setReason] = useState("");
+  const issuance = rejection.kind === "issuance";
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Reject ${issuance ? "issuance" : "redemption"} request ${rejection.id}`}
+      description={
+        issuance
+          ? `${formatTaka(rejection.amount)} is not issued, and the bank transfer reference of the request stays used.`
+          : `${formatTaka(rejection.amount)} in tBDT returns to the settlement account of the institution.`
+      }
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            variant="danger"
+            disabled={!reason.trim() || command.isPending}
+            onClick={() =>
+              command.mutate({
+                path: `/v1/reserves/${rejection.kind}/${rejection.id}/reject`,
+                done: "Request rejected",
+                body: { reason: reason.trim() },
+              })
+            }
+          >
+            Reject
+          </Button>
+        </>
+      }
+    >
+      <Field label="Reason code" hint="Recorded on chain with the decision, for instance AMOUNT-MISMATCH.">
+        <Input value={reason} onChange={(event) => setReason(event.target.value)} maxLength={31} />
+      </Field>
+    </Dialog>
+  );
+}
+
 function StatementDialog({ onClose }: { onClose: () => void }) {
   const command = useCommand(onClose);
   const [balance, setBalance] = useState("");
@@ -199,6 +246,7 @@ export function ReservesPage() {
   const coverage = useApi<Coverage>("/v1/reserves/coverage");
   const command = useCommand();
   const [dialog, setDialog] = useState<"statement" | "issuance" | "redemption" | null>(null);
+  const [rejecting, setRejecting] = useState<Rejection | null>(null);
   const isChecker = hasRole(operator, ["reserve_checker"]);
 
   const statement = reserves.data?.statements[0];
@@ -207,13 +255,18 @@ export function ReservesPage() {
   const headroom = BigInt(reserve) - BigInt(supply);
 
   /** Buttons of the checker on a pending request. */
-  const decide = (kind: "issuance" | "redemptions", id: string, approve: string, approved: string) => (
+  const decide = (
+    kind: Rejection["kind"],
+    request: { id: string; amount: string },
+    approve: string,
+    approved: string,
+  ) => (
     <span className="flex justify-end gap-1.5">
       <Button
         small
         variant="primary"
         disabled={command.isPending}
-        onClick={() => command.mutate({ path: `/v1/reserves/${kind}/${id}/${approve}`, done: approved })}
+        onClick={() => command.mutate({ path: `/v1/reserves/${kind}/${request.id}/${approve}`, done: approved })}
       >
         {approve === "approve" ? "Approve" : "Confirm payout"}
       </Button>
@@ -221,11 +274,7 @@ export function ReservesPage() {
         small
         variant="danger"
         disabled={command.isPending}
-        onClick={() => {
-          const reason = window.prompt("Reason code for the rejection");
-          if (reason)
-            command.mutate({ path: `/v1/reserves/${kind}/${id}/reject`, done: "Request rejected", body: { reason } });
-        }}
+        onClick={() => setRejecting({ kind, id: request.id, amount: request.amount })}
       >
         Reject
       </Button>
@@ -256,7 +305,7 @@ export function ReservesPage() {
       align: "right",
       cell: (item) =>
         item.status === "Pending" && isChecker
-          ? decide("issuance", item.id, "approve", "Issuance approved and minted")
+          ? decide("issuance", item, "approve", "Issuance approved and minted")
           : null,
     },
   ];
@@ -285,7 +334,7 @@ export function ReservesPage() {
       align: "right",
       cell: (item) =>
         item.status === "Pending" && isChecker
-          ? decide("redemptions", item.id, "settle", "Redemption settled and burned")
+          ? decide("redemptions", item, "settle", "Redemption settled and burned")
           : null,
     },
   ];
@@ -390,6 +439,7 @@ export function ReservesPage() {
       {dialog === "statement" && <StatementDialog onClose={() => setDialog(null)} />}
       {dialog === "issuance" && <IssuanceDialog onClose={() => setDialog(null)} />}
       {dialog === "redemption" && <RedemptionDialog onClose={() => setDialog(null)} />}
+      {rejecting && <RejectRequestDialog rejection={rejecting} onClose={() => setRejecting(null)} />}
     </>
   );
 }

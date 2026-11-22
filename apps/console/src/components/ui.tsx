@@ -7,6 +7,7 @@ import {
   type TextareaHTMLAttributes,
   useEffect,
   useId,
+  useRef,
 } from "react";
 
 import { formatTaka, shortAddress, shortHash } from "../lib/format";
@@ -189,6 +190,7 @@ export function Dialog({
   wide?: boolean;
 }) {
   const titleId = useId();
+  const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -199,6 +201,16 @@ export function Dialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Focus moves into the dialog when it opens, to its first field or else the dialog itself, and returns to
+  // the control that opened it when it closes. A button never takes the first focus, so Enter decides nothing.
+  useEffect(() => {
+    if (!open) return undefined;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const field = panel.current?.querySelector<HTMLElement>("input:not([readonly]), select, textarea:not([readonly])");
+    (field ?? panel.current)?.focus();
+    return () => opener?.focus();
+  }, [open]);
+
   if (!open) return null;
   return (
     <div
@@ -206,11 +218,13 @@ export function Dialog({
       onMouseDown={onClose}
     >
       <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
-        className={`w-full rounded-xl border border-line bg-surface shadow-xl ${wide ? "max-w-3xl" : "max-w-lg"}`}
+        className={`w-full rounded-xl border border-line bg-surface shadow-xl focus:outline-none ${wide ? "max-w-3xl" : "max-w-lg"}`}
       >
         <div className="border-b border-line px-5 py-4">
           <h2 id={titleId} className="text-base font-semibold">
@@ -244,6 +258,7 @@ const STATUS_TONES: Record<string, Tone> = {
   Rejected: "critical",
   Failed: "critical",
   Mismatch: "critical",
+  Shortfall: "critical",
   Reclaimed: "neutral",
   Closed: "neutral",
   Suspended: "critical",
@@ -252,6 +267,7 @@ const STATUS_TONES: Record<string, Tone> = {
 const STATUS_LABELS: Record<string, string> = {
   UnderReview: "Under review",
   AwaitingApproval: "Awaiting approval",
+  Shortfall: "Reserve shortfall",
 };
 
 const TONE_MARK: Record<Tone, { glyph: string; className: string }> = {
@@ -331,7 +347,20 @@ export function DataTable<T>({
             <tr
               key={rowKey(row)}
               onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={`border-b border-line last:border-0 ${onRowClick ? "cursor-pointer hover:bg-sunken/50" : ""}`}
+              // A row that opens a detail is reachable with Tab and opens with Enter or Space as well.
+              tabIndex={onRowClick ? 0 : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    }
+                  : undefined
+              }
+              className={`border-b border-line last:border-0 ${onRowClick ? "cursor-pointer hover:bg-sunken/50 focus-visible:bg-sunken/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand" : ""}`}
             >
               {columns.map((column) => (
                 <td

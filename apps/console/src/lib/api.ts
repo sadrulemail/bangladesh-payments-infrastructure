@@ -61,6 +61,8 @@ export const api = {
 export interface CommandResult {
   txHash: string;
   blockNumber: string;
+  /** False when the API answered before its read models reached the block. They catch up shortly. */
+  indexed?: boolean;
 }
 
 /** Message to show an operator when a command fails. */
@@ -82,5 +84,6 @@ export async function download(path: string, fileName: string): Promise<void> {
   link.href = url;
   link.download = fileName;
   link.click();
-  URL.revokeObjectURL(url);
+  // Some browsers drop the download when its address is revoked in the same task as the click.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }

@@ -1,4 +1,5 @@
 import { PURPOSE_CODES } from "@takarail/sdk/domain";
+import { parseTaka } from "@takarail/sdk/money";
 import { useState } from "react";
 
 import {
@@ -66,7 +67,7 @@ function NewBatchDialog({ onClose }: { onClose: () => void }) {
 
   const payers = (own.data ?? []).filter((account) => account.tier === "Corporate" && account.inCustody);
   const parsed = parsePayouts(text);
-  const total = parsed.payouts.reduce((sum, payout) => sum + Number(payout.amount), 0);
+  const total = parsed.payouts.reduce((sum, payout) => sum + parseTaka(payout.amount), 0n);
 
   const fill = () =>
     setText(
@@ -151,7 +152,7 @@ function NewBatchDialog({ onClose }: { onClose: () => void }) {
             <span className="text-critical">{parsed.error}</span>
           ) : (
             <span className="text-ink-2">
-              {parsed.payouts.length} payouts &middot; total {formatTaka(BigInt(Math.round(total * 100)))}
+              {parsed.payouts.length} payouts &middot; total {formatTaka(total)}
             </span>
           )}
         </p>

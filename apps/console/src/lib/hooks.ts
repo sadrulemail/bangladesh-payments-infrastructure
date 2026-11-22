@@ -33,7 +33,15 @@ export function useCommand(onSettled?: () => void) {
     mutationFn: (command: Command) => api.post<CommandResult>(command.path, command.body),
     onSuccess: async (result, command) => {
       await queryClient.invalidateQueries();
-      const detail = result.txHash ? `Block ${result.blockNumber} · ${shortHash(result.txHash)}` : undefined;
+      const detail = result.txHash
+        ? [
+            `Block ${result.blockNumber}`,
+            shortHash(result.txHash),
+            result.indexed === false ? "figures update in a moment" : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        : undefined;
       notify("good", command.done, detail);
       onSettled?.();
     },
