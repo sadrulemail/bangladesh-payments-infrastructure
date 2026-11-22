@@ -67,8 +67,9 @@ scaled by 1,000,000. Short codes and references are ASCII packed into `bytes32`.
 4. The receiver's balance after the movement must stay within the cap of its tier.
 
 `forceTransfer(from, to, amount, orderRef)` skips steps 1 and 3 and the sender's eligibility, so funds
-can leave a frozen account, but the receiver must still be eligible. It emits `ForcedTransfer` with the
-order reference.
+can leave a frozen account, but the receiver must still be eligible. Neither end may be the zero
+address (`InvalidAddress`): an order moves funds that exist and never mints or burns. It emits
+`ForcedTransfer` with the order reference.
 
 `transferAndCall(to, amount, data)` is the ERC-1363 entry used to fund a module with an instruction.
 It reverts when the receiver does not implement the ERC-1363 receiver interface.
@@ -105,7 +106,7 @@ administrator of their acquiring institution.
 | Instruction      | Builder                                             | Settlement                                                                                                                                            |
 | ---------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Merchant payment | `encodeMerchantPayment(merchantId, invoiceRef)`     | Merchant receives the amount less the fee; the fee is split between acquirer and network. A non-zero invoice reference is accepted once per merchant. |
-| Person transfer  | `encodePersonTransfer(payee, endToEndRef, purpose)` | Payee receives the full amount. No fee.                                                                                                               |
+| Person transfer  | `encodePersonTransfer(payee, endToEndRef, purpose)` | Payee receives the full amount. No fee. A settlement module cannot be the payee (`InvalidPayee`).                                                     |
 | Refund           | `encodeRefund(paymentId)`                           | Sent by the merchant of the payment; returns up to the original amount to the payer.                                                                  |
 
 **Fees:** `feeBpsFor(categoryCode)` returns the fee of the merchant's ISO 18245 category, or the
@@ -167,6 +168,8 @@ amount))))`, the standard OpenZeppelin double hash.
 - A payout the root does not cover reverts the chunk; a payout the receiver cannot accept is recorded
   as failed and the chunk continues.
 - Payouts never exceed the funded total (`BatchOverdrawn`).
+- A payout is never recorded as failed for lack of gas: a transfer starved of gas leaves the hub too
+  little to record the failure, so the whole chunk reverts instead.
 - After closing, the hub holds nothing for the batch.
 
 ## Specifications
@@ -174,11 +177,11 @@ amount))))`, the standard OpenZeppelin double hash.
 | Suite                          | Cases | Focus                                                                             |
 | ------------------------------ | ----- | --------------------------------------------------------------------------------- |
 | `participant-registry.spec.ts` | 13    | Admission, sponsorship, tiers, freeze, closure, policy                            |
-| `tokenised-taka.spec.ts`       | 14    | Eligibility, limits, Dhaka day roll-over, pause, forced transfer                  |
+| `tokenised-taka.spec.ts`       | 15    | Eligibility, limits, Dhaka day roll-over, pause, forced transfer and supply       |
 | `reserve-controller.spec.ts`   | 13    | Statements, maker-checker, reserve cap, stale statement, redemption               |
-| `payment-switch.spec.ts`       | 15    | Merchants, fee split and rounding, invoices, transfers, refunds                   |
+| `payment-switch.spec.ts`       | 16    | Merchants, fee split and rounding, invoices, transfers, module payees, refunds    |
 | `remittance-gateway.spec.ts`   | 17    | Straight-through payout, review, rate band, origination rules, deferred incentive |
-| `disbursement-hub.spec.ts`     | 12    | Funding, approval, chunked execution, proofs, failed payouts, closing             |
+| `disbursement-hub.spec.ts`     | 13    | Funding, approval, chunked execution, proofs, failed payouts, gas, closing        |
 | `conservation.spec.ts`         | 4     | Supply held by known accounts, within the reserve, modules hold what they owe     |
 
 Run them with `pnpm --filter @takarail/contracts spec`.

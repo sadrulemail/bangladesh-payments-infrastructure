@@ -220,6 +220,17 @@ describe("PaymentSwitch", () => {
         "AccountNotActive",
       );
     });
+
+    it("never pays a settlement module, which would hold the funds for nobody", async () => {
+      const { paymentSwitch, hub, karim, instruct } = await loadFixture(deployNetwork);
+
+      for (const module of [paymentSwitch, hub]) {
+        const instruction = await paymentSwitch.encodePersonTransfer(module.target, ethers.ZeroHash, ascii("FAMI"));
+        await expect(instruct(karim, paymentSwitch, taka(100), instruction))
+          .to.be.revertedWithCustomError(paymentSwitch, "InvalidPayee")
+          .withArgs(module.target);
+      }
+    });
   });
 
   describe("refunds", () => {

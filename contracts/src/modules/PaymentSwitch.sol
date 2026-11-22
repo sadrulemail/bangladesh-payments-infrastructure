@@ -107,6 +107,7 @@ contract PaymentSwitch is AccessControl, SettlementModule {
     error UnknownPayment(uint256 paymentId);
     error NotRefundable(uint256 paymentId);
     error RefundExceedsPayment(uint256 paymentId, uint256 refundedTotal, uint256 amount);
+    error InvalidPayee(address payee);
 
     constructor(
         address governance,
@@ -273,6 +274,8 @@ contract PaymentSwitch is AccessControl, SettlementModule {
         _pay(feeCollector, networkFee);
     }
 
+    /// @dev A settlement module takes funds only together with an instruction. Paid as a person, it would
+    ///      hold the funds without owing them to anyone, so system accounts cannot be payees.
     function _settlePersonTransfer(
         address payer,
         uint256 amount,
@@ -280,6 +283,7 @@ contract PaymentSwitch is AccessControl, SettlementModule {
         bytes32 endToEndRef,
         bytes4 purpose
     ) private {
+        if (registry.account(payee).tier == IParticipantRegistry.Tier.System) revert InvalidPayee(payee);
         uint256 paymentId = _record(PaymentKind.Person, payer, payee, amount, 0, bytes32(0));
         emit PersonTransferSettled(paymentId, payer, payee, amount, endToEndRef, purpose);
         _pay(payee, amount);

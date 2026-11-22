@@ -219,6 +219,33 @@ describe("DisbursementHub", () => {
       expect((await hub.batch(batchId)).status).to.equal(Status.Closed);
     });
 
+    it("never records a payout as failed because the executor sent too little gas", async () => {
+      const { hub, factory, batch, batchId } = await approvedBatch();
+      const payouts = batch.payouts([0]);
+      const estimate: bigint = await as(hub, factory).execute.estimateGas(batchId, payouts);
+
+      // A transfer starved of gas leaves the hub 1/64 of what it had, too little to record a failure, so
+      // each attempt either reverts as a whole or pays the worker. The payer never gets the wage back.
+      let settled = 0;
+      for (let gasLimit = estimate; gasLimit > estimate - 120_000n; gasLimit -= 2_000n) {
+        const snapshot = await ethers.provider.send("evm_snapshot", []);
+        const receipt = await as(hub, factory)
+          .execute(batchId, payouts, { gasLimit })
+          .then((sent) => sent.wait())
+          .catch(() => null);
+        await ethers.provider.send("evm_revert", [snapshot]);
+        if (!receipt) continue;
+
+        settled += 1;
+        const failed = receipt.logs.some(
+          (log: { address: string; topics: string[]; data: string }) =>
+            log.address === hub.target && hub.interface.parseLog(log)?.name === "PayoutFailed",
+        );
+        expect(failed, `payout recorded as failed with a gas limit of ${gasLimit}`).to.equal(false);
+      }
+      expect(settled).to.be.greaterThan(0);
+    });
+
     it("stays open until every payout is processed or the execution window ends", async () => {
       const { hub, token, factory, karim, batch, batchId } = await approvedBatch();
       await as(hub, factory).execute(batchId, batch.payouts([0, 1, 2, 3]));

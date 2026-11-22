@@ -159,6 +159,20 @@ describe("TokenisedTaka", () => {
         as(token, surmaSettlement).forceTransfer(nusrat.address, surmaSettlement.address, taka(1), orderRef),
       ).to.be.revertedWithCustomError(token, "AccessControlUnauthorizedAccount");
     });
+
+    it("never creates or destroys supply through a legal order", async () => {
+      const { token, supervisor, karim } = await loadFixture(deployNetwork);
+      const orderRef = ethers.id("order-2026-119");
+      const supply = await token.totalSupply();
+
+      await expect(
+        as(token, supervisor).forceTransfer(ethers.ZeroAddress, karim.address, taka(1_000), orderRef),
+      ).to.be.revertedWithCustomError(token, "InvalidAddress");
+      await expect(
+        as(token, supervisor).forceTransfer(karim.address, ethers.ZeroAddress, taka(1_000), orderRef),
+      ).to.be.revertedWithCustomError(token, "InvalidAddress");
+      expect(await token.totalSupply()).to.equal(supply);
+    });
   });
 
   describe("transferAndCall", () => {

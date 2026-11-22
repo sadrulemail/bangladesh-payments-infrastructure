@@ -77,7 +77,9 @@ contract TokenisedTaka is ERC20, ERC1363, AccessControl, Pausable, ITokenisedTak
     }
 
     /// @notice Moves funds out of an account under a legal order, including a frozen account.
-    /// @dev Limits and the pause switch do not apply. The receiver must still be eligible.
+    /// @dev Limits and the pause switch do not apply. The receiver must still be eligible. An order moves
+    ///      funds that exist: with the zero address on either side it would mint or burn outside the
+    ///      reserve controller, so both ends must be real accounts.
     /// @param orderRef Reference of the court or supervisory order.
     function forceTransfer(
         address from,
@@ -85,6 +87,7 @@ contract TokenisedTaka is ERC20, ERC1363, AccessControl, Pausable, ITokenisedTak
         uint256 amount,
         bytes32 orderRef
     ) external onlyRole(ENFORCEMENT_ROLE) {
+        if (from == address(0) || to == address(0)) revert InvalidAddress();
         registry.policyOf(to);
         super._update(from, to, amount);
         emit ForcedTransfer(from, to, amount, orderRef, msg.sender);
